@@ -2,6 +2,7 @@ import express from 'express';
 
 const PORT = parseInt(process.env.WEBHOOK_BRIDGE_PORT || '8787', 10);
 const BACKEND = process.env.PYTHON_BACKEND_URL || 'http://localhost:8000';
+const FORWARD_TIMEOUT_MS = parseInt(process.env.FORWARD_TIMEOUT_MS || '3000', 10);
 
 const app = express();
 app.use(express.json({ limit: '1mb' }));
@@ -13,11 +14,14 @@ app.post('/webhooks/monday', async (req, res) => {
     return res.json({ challenge: req.body.challenge });
   }
 
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FORWARD_TIMEOUT_MS);
   try {
     const forward = await fetch(`${BACKEND}/webhooks/monday`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(req.body),
+      signal: controller.signal,
     });
     const text = await forward.text();
     res
@@ -27,6 +31,8 @@ app.post('/webhooks/monday', async (req, res) => {
   } catch (err) {
     console.error('forward failed', err);
     res.status(502).json({ error: 'backend unreachable' });
+  } finally {
+    clearTimeout(timer);
   }
 });
 

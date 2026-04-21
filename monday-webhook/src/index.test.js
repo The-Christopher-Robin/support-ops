@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 import { test, before, after } from 'node:test';
-import { app } from './index.js';
+
+process.env.NODE_ENV = 'test';
+process.env.PYTHON_BACKEND_URL = 'http://127.0.0.1:1';
+process.env.FORWARD_TIMEOUT_MS = '500';
+
+const { app } = await import('./index.js');
 
 let server;
 let baseUrl;
@@ -13,6 +18,7 @@ before(async () => {
 });
 
 after(async () => {
+  server.closeAllConnections?.();
   await new Promise((resolve) => server.close(resolve));
 });
 
